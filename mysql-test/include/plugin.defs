@@ -175,3 +175,6 @@ test_services_command_services    plugin_output_directory   no  TEST_SERVICES_CO
 
 # component test_status_var_reader
 component_test_status_var_reader  	        plugin_output_directory no TEST_STATUS_VAR_READER
+
+# MyKiruna
+ha_mykiruna     plugin_output_directory no      MYKIRUNA_PLUGIN
