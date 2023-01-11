@@ -1,0 +1,3 @@
+[submodule "storage/mykiruna/kirunadb"]
+	path = storage/mykiruna/kirunadb
+	url = git@github.com:laurynas-biveinis/kirunadb.git
