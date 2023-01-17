@@ -1,8 +1,9 @@
 // Copyright 2022-2023 Laurynas Biveinis
 #include <cassert>
-#include <iostream>
 #include <memory>
 #include <optional>
+
+#include <fmt/core.h>
 
 #define LOG_COMPONENT_TAG "MyKiruna"
 
@@ -262,11 +263,11 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   try {
     transaction->commit();
   } catch (const rust::Error &e) {
-    // TODO(laurynas): start using fmt
-    LogPluginErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                 "Failed to commit KirunaDB transaction ID: %" PRIu64
-                 ", error: %s",
-                 transaction->get_id(), e.what());
+    LogPluginErr(
+        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+        fmt::format("Failed to commit KirunaDB transaction ID: {}, error: {}",
+                    transaction->get_id(), e.what())
+            .c_str());
     return HA_ERR_INTERNAL_ERROR;
   }
 
@@ -282,12 +283,14 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     db.reset(kirunadb::open(default_datadir).into_raw());
     logging_service = std::move(init_logging_service);
   } catch (const std::runtime_error &e) {
-    std::cerr << "Failed to initialize logging service for MyKiruna plugin\n";
+    fmt::print(stderr,
+               "Failed to initialize logging service for MyKiruna plugin\n");
     return 1;
   } catch (const rust::Error &e) {
     LogPluginErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                 "Failed to initialize KirunaDB in %s: %s", default_datadir,
-                 e.what());
+                 fmt::format("Failed to initialize KirunaDB in {}: {}",
+                             default_datadir, e.what())
+                     .c_str());
     return 1;
   }
 
