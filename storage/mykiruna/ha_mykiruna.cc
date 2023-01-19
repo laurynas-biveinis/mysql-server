@@ -17,8 +17,8 @@
 #include "sql/query_options.h"
 #include "sql/table.h"
 
-#include "kirunadb/src/ffi_cxx.rs.h"
 #include "rust/cxx.h"
+#include "kirunadb_cxx/ffi_cxx.h"
 
 namespace {
 
