@@ -4,6 +4,7 @@
 #include <optional>
 
 #include <fmt/core.h>
+#include <rust/cxx.h>
 
 #define LOG_COMPONENT_TAG "MyKiruna"
 
@@ -17,7 +18,6 @@
 #include "sql/query_options.h"
 #include "sql/table.h"
 
-#include "rust/cxx.h"
 #include "kirunadb_cxx/ffi_cxx.h"
 
 namespace {
