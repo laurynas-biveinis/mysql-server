@@ -69,6 +69,12 @@ class logging_service_for_plugin final {
   bool inited{false};
 };
 
+template <typename... T>
+void error_log(enum loglevel level, fmt::format_string<T...> fmt, T &&...args) {
+  LogPluginErr(level, ER_LOG_PRINTF_MSG,
+               fmt::format(fmt, std::forward<T>(args)...).c_str());
+}
+
 SERVICE_TYPE(registry) *logging_service_for_plugin::reg_srv = nullptr;
 
 std::optional<logging_service_for_plugin> logging_service;
@@ -263,11 +269,9 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   try {
     transaction->commit();
   } catch (const rust::Error &e) {
-    LogPluginErr(
-        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-        fmt::format("Failed to commit KirunaDB transaction ID: {}, error: {}",
-                    transaction->get_id(), e.what())
-            .c_str());
+    error_log(ERROR_LEVEL,
+              "failed to commit KirunaDB transaction ID: {}, error: {}",
+              transaction->get_id(), e.what());
     return HA_ERR_INTERNAL_ERROR;
   }
 
@@ -287,10 +291,8 @@ class [[nodiscard]] ha_mykiruna final : public handler {
                "Failed to initialize logging service for MyKiruna plugin\n");
     return 1;
   } catch (const rust::Error &e) {
-    LogPluginErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                 fmt::format("Failed to initialize KirunaDB in {}: {}",
-                             default_datadir, e.what())
-                     .c_str());
+    error_log(ERROR_LEVEL, "failed to initialize KirunaDB in {}: {}",
+              default_datadir, e.what());
     return 1;
   }
 
@@ -302,7 +304,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   // DDL
   mykiruna_hton->create = mykiruna_create_handler;
 
-  LogPluginErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "initialized");
+  error_log(INFORMATION_LEVEL, "initialized");
 
   return 0;
 }
@@ -313,7 +315,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
 
   db.reset();
 
-  LogPluginErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "uninitialized");
+  error_log(INFORMATION_LEVEL, "uninitialized");
 
   logging_service.reset();
   return 0;
