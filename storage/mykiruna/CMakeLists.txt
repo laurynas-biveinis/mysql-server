@@ -22,5 +22,5 @@ target_link_libraries(mykiruna kirunadb_cxx)
 target_link_libraries(mykiruna fmt)
 # Should not be needed but I guess I cannot do corrosion-rs / cxx.rs correctly
 # yet
-target_include_directories(mykiruna PRIVATE
+target_include_directories(mykiruna SYSTEM PRIVATE
   ${CMAKE_BINARY_DIR}/cargo/build/${Rust_CARGO_TARGET_CACHED}/cxxbridge)
