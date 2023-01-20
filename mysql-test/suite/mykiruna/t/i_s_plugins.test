@@ -1,0 +1,7 @@
+--source ../include/have_mykiruna_plugin.inc
+
+eval INSTALL PLUGIN mykiruna SONAME '$MYKIRUNA_PLUGIN';
+
+SELECT * FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = "MyKiruna";
+
+UNINSTALL PLUGIN mykiruna;
