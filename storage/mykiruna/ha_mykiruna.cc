@@ -43,9 +43,17 @@ SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 
 namespace {
 
-class logging_service_for_plugin final {
+#ifdef NDEBUG
+#define RELEASE_BUILD_STATIC static
+#define DEBUG_BUILD_CONST
+#else
+#define RELEASE_BUILD_STATIC
+#define DEBUG_BUILD_CONST const
+#endif
+
+class error_log_service final {
  public:
-  logging_service_for_plugin() {
+  error_log_service() {
     assert(reg_srv == nullptr);
     if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
       throw std::runtime_error(
@@ -53,39 +61,40 @@ class logging_service_for_plugin final {
     inited = true;
   }
 
-  logging_service_for_plugin(logging_service_for_plugin &&other) noexcept
+  error_log_service(error_log_service &&other) noexcept
       : inited{std::exchange(other.inited, false)} {}
 
-  ~logging_service_for_plugin() {
+  ~error_log_service() {
     assert(reg_srv != nullptr);
     if (!inited) return;
     deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
   }
 
-  logging_service_for_plugin &operator=(
-      logging_service_for_plugin &&other) noexcept {
+  error_log_service &operator=(error_log_service &&other) noexcept {
     inited = std::exchange(other.inited, false);
     return *this;
   }
 
-  logging_service_for_plugin(const logging_service_for_plugin &) = delete;
-  logging_service_for_plugin &operator=(const logging_service_for_plugin &) =
-      delete;
+  template <typename... T>
+  RELEASE_BUILD_STATIC void log(enum loglevel level,
+                                fmt::format_string<T...> fmt,
+                                T &&...args) DEBUG_BUILD_CONST {
+    assert(inited);
+    LogPluginErr(level, ER_LOG_PRINTF_MSG,
+                 fmt::format(fmt, std::forward<T>(args)...).c_str());
+  }
+
+  error_log_service(const error_log_service &) = delete;
+  error_log_service &operator=(const error_log_service &) = delete;
 
  private:
   static SERVICE_TYPE(registry) * reg_srv;
   bool inited{false};
 };
 
-template <typename... T>
-void error_log(enum loglevel level, fmt::format_string<T...> fmt, T &&...args) {
-  LogPluginErr(level, ER_LOG_PRINTF_MSG,
-               fmt::format(fmt, std::forward<T>(args)...).c_str());
-}
+SERVICE_TYPE(registry) *error_log_service::reg_srv = nullptr;
 
-SERVICE_TYPE(registry) *logging_service_for_plugin::reg_srv = nullptr;
-
-std::optional<logging_service_for_plugin> logging_service;
+std::optional<error_log_service> error_log;
 
 const auto transaction_deleter = [](kirunadb::Transaction *ptr) {
   auto boxed_ptr = rust::Box<kirunadb::Transaction>::from_raw(ptr);
@@ -278,9 +287,9 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   try {
     transaction->commit();
   } catch (const rust::Error &e) {
-    error_log(ERROR_LEVEL,
-              "failed to commit KirunaDB transaction ID: {}, error: {}",
-              transaction->get_id(), e.what());
+    error_log->log(ERROR_LEVEL,
+                   "failed to commit KirunaDB transaction ID: {}, error: {}",
+                   transaction->get_id(), e.what());
     return HA_ERR_INTERNAL_ERROR;
   }
 
@@ -288,20 +297,20 @@ class [[nodiscard]] ha_mykiruna final : public handler {
 }
 
 [[nodiscard]] int mykiruna_init(void *p) {
-  assert(!logging_service.has_value());
+  assert(!error_log.has_value());
   assert(db == nullptr);
 
   try {
-    logging_service_for_plugin init_logging_service{};
+    error_log_service init_logging_service{};
     db.reset(kirunadb::open(default_datadir).into_raw());
-    logging_service = std::move(init_logging_service);
+    error_log = std::move(init_logging_service);
   } catch (const std::runtime_error &e) {
     fmt::print(stderr,
                "Failed to initialize logging service for MyKiruna plugin\n");
     return 1;
   } catch (const rust::Error &e) {
-    error_log(ERROR_LEVEL, "failed to initialize KirunaDB in {}: {}",
-              default_datadir, e.what());
+    error_log->log(ERROR_LEVEL, "failed to initialize KirunaDB in {}: {}",
+                   default_datadir, e.what());
     return 1;
   }
 
@@ -313,21 +322,21 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   // DDL
   mykiruna_hton->create = mykiruna_create_handler;
 
-  error_log(INFORMATION_LEVEL, "version {}.{} initialized",
-            mykiruna::version >> 8U, mykiruna::version & 0xFF);
+  error_log->log(INFORMATION_LEVEL, "version {}.{} initialized",
+                 mykiruna::version >> 8U, mykiruna::version & 0xFF);
 
   return 0;
 }
 
 [[nodiscard]] int mykiruna_deinit(void *) {
   assert(db != nullptr);
-  assert(logging_service.has_value());
+  assert(error_log.has_value());
 
   db.reset();
 
-  error_log(INFORMATION_LEVEL, "uninitialized");
+  error_log->log(INFORMATION_LEVEL, "uninitialized");
 
-  logging_service.reset();
+  error_log.reset();
   return 0;
 }
 
