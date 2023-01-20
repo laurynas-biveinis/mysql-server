@@ -263,7 +263,8 @@ class [[nodiscard]] ha_mykiruna final : public handler {
 
 [[nodiscard]] handler *mykiruna_create_handler(handlerton *hton,
                                                TABLE_SHARE *table,
-                                               bool partitioned,
+                                               bool partitioned
+                                               [[maybe_unused]],
                                                MEM_ROOT *mem_root) {
   assert(!partitioned);
   return new (mem_root) ha_mykiruna(hton, table);
