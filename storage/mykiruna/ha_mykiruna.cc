@@ -1,5 +1,6 @@
 // Copyright 2022-2023 Laurynas Biveinis
 #include <cassert>
+#include <cstdint>
 #include <memory>
 #include <optional>
 
@@ -19,6 +20,13 @@
 #include "sql/table.h"
 
 #include "kirunadb_cxx/ffi_cxx.h"
+
+namespace mykiruna {
+
+// major.minor where major is the higher byte and minor is the lower byte
+constexpr std::uint16_t version = 0x0001;
+
+}  // namespace mykiruna
 
 namespace {
 
@@ -304,7 +312,8 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   // DDL
   mykiruna_hton->create = mykiruna_create_handler;
 
-  error_log(INFORMATION_LEVEL, "initialized");
+  error_log(INFORMATION_LEVEL, "version {}.{} initialized",
+            mykiruna::version >> 8U, mykiruna::version & 0xFF);
 
   return 0;
 }
@@ -336,7 +345,7 @@ mysql_declare_plugin(my_kiruna){
     mykiruna_init,
     nullptr,
     mykiruna_deinit,
-    0x0001,
+    mykiruna::version,
     nullptr,
     nullptr,
     nullptr,
