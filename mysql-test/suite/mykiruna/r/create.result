@@ -1,0 +1,5 @@
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+# The simplest case
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=MyKiruna;
+DROP TABLE t1;
+UNINSTALL PLUGIN mykiruna;

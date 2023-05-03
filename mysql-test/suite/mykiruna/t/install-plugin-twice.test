@@ -1,0 +1,7 @@
+--source ../include/have_mykiruna_plugin.inc
+
+eval INSTALL PLUGIN mykiruna SONAME '$MYKIRUNA_PLUGIN';
+UNINSTALL PLUGIN mykiruna;
+
+eval INSTALL PLUGIN mykiruna SONAME '$MYKIRUNA_PLUGIN';
+UNINSTALL PLUGIN mykiruna;
