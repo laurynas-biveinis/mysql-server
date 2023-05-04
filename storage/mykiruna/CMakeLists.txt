@@ -19,6 +19,7 @@ add_subdirectory(fmt)
 MYSQL_ADD_PLUGIN(mykiruna ha_mykiruna.cc STORAGE_ENGINE)
 
 target_link_libraries(mykiruna kirunadb_cxx)
+target_link_libraries(mykiruna extra::rapidjson)
 target_link_libraries(mykiruna fmt)
 # Should not be needed but I guess I cannot do corrosion-rs / cxx.rs correctly
 # yet
