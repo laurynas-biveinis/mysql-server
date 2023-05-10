@@ -9,15 +9,15 @@
 
 #define LOG_COMPONENT_TAG "MyKiruna"
 
-#include "my_alloc.h"
-#include "mysql/components/services/log_builtins.h"
-#include "mysql/plugin.h"
-#include "mysqld_error.h"
-#include "sql/dd/properties.h"
-#include "sql/dd/types/table.h"
-#include "sql/handler.h"
-#include "sql/query_options.h"
-#include "sql/table.h"
+#include <my_alloc.h>
+#include <mysql/components/services/log_builtins.h>
+#include <mysql/plugin.h>
+#include <mysqld_error.h>
+#include <sql/dd/properties.h>
+#include <sql/dd/types/table.h>
+#include <sql/handler.h>
+#include <sql/query_options.h>
+#include <sql/table.h>
 
 #include "kirunadb_cxx/ffi_cxx.h"
 
