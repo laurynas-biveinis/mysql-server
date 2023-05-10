@@ -1,7 +1,6 @@
 --source include/have_debug.inc
---source ../include/have_mykiruna_plugin.inc
 
-eval INSTALL PLUGIN mykiruna SONAME '$MYKIRUNA_PLUGIN';
+eval INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
 
 CREATE TABLE t_a (a INT PRIMARY KEY) ENGINE=MyKiruna;
 

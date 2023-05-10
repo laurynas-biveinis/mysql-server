@@ -1,6 +1,4 @@
---source ../include/have_mykiruna_plugin.inc
-
-eval INSTALL PLUGIN mykiruna SONAME '$MYKIRUNA_PLUGIN';
+eval INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
 
 SELECT * FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = "MyKiruna";
 
