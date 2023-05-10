@@ -1,4 +1,4 @@
-eval INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
 
 --echo # The simplest case
 CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=MyKiruna;

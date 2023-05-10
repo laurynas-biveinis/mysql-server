@@ -1,5 +1,5 @@
-eval INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
 UNINSTALL PLUGIN mykiruna;
 
-eval INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
 UNINSTALL PLUGIN mykiruna;
