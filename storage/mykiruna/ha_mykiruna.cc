@@ -182,10 +182,10 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     std::unique_ptr<dd::Properties> se_data{
         dd::Properties::parse_properties("")};
 
-    auto transaction_box = db->begin_transaction();
+    auto transaction_box = kirunadb::begin_transaction(*db);
     auto &transaction = move_to_thd(thd, std::move(transaction_box));
 
-    const auto trx_id = transaction.get_id();
+    const auto trx_id = transaction.id();
     trans_register_ha(thd, false, ht, &trx_id);
 
     assert(thd_test_options(thd, OPTION_NOT_AUTOCOMMIT));
@@ -289,7 +289,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   } catch (const rust::Error &e) {
     error_log->log(ERROR_LEVEL,
                    "failed to commit KirunaDB transaction ID: {}, error: {}",
-                   transaction->get_id(), e.what());
+                   transaction->id(), e.what());
     return HA_ERR_INTERNAL_ERROR;
   }
 
