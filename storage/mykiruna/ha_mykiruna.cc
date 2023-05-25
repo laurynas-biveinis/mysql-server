@@ -257,8 +257,8 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   }
 };
 
-[[nodiscard]] kirunadb::Transaction *exchange_in_thd(
-    THD *thd, const handlerton *hton, kirunadb::Transaction *new_val) {
+[[nodiscard]] auto *exchange_in_thd(THD *thd, const handlerton *hton,
+                                    kirunadb::Transaction *new_val) {
   auto *const result =
       static_cast<kirunadb::Transaction *>(thd_get_ha_data(thd, hton));
   thd_set_ha_data(thd, hton, new_val);
