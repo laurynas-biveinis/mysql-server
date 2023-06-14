@@ -186,11 +186,13 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     auto &transaction = move_to_thd(thd, std::move(transaction_box));
 
     const auto trx_id = transaction.id();
-    trans_register_ha(thd, false, ht, &trx_id);
+    register_transaction_hton(thd, transaction_registration_scope::STATEMENT,
+                              trx_id);
 
     assert(thd_test_options(thd, OPTION_NOT_AUTOCOMMIT));
     assert(!thd_test_options(thd, OPTION_BEGIN));
-    trans_register_ha(thd, true, ht, &trx_id);
+    register_transaction_hton(thd, transaction_registration_scope::TRANSACTION,
+                              trx_id);
 
     const auto descriptor_node_id = transaction.new_art_descriptor_node();
     se_data->set("descriptor_node", descriptor_node_id);
@@ -249,6 +251,21 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   }
 
  private:
+  enum class transaction_registration_scope { STATEMENT, TRANSACTION };
+
+  // This is a wrapper for trans_register_ha that does two things:
+  // - Hides the reinterpret_cast that translates between std::uint64_t in
+  //   KirunaDB and ulonglong in MySQL transaction IDs.
+  // - Replaces the 'bool arg' argument with a more expressive enum.
+  void register_transaction_hton(
+      THD *thd, enum transaction_registration_scope registration_scope,
+      std::uint64_t transaction_id) const {
+    static_assert(sizeof(transaction_id) == sizeof(ulonglong));
+    trans_register_ha(
+        thd, registration_scope == transaction_registration_scope::TRANSACTION,
+        ht, reinterpret_cast<const ulonglong *>(&transaction_id));
+  }
+
   [[nodiscard]] kirunadb::Transaction &move_to_thd(
       THD *thd, rust::Box<kirunadb::Transaction> &&transaction) const noexcept {
     auto *const raw_transaction_ptr = transaction.into_raw();
