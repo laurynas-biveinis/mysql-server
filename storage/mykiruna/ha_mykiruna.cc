@@ -194,8 +194,14 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     register_transaction_hton(thd, transaction_registration_scope::TRANSACTION,
                               trx_id);
 
-    const auto descriptor_node_id = transaction.new_art_descriptor_node();
-    se_data->set("descriptor_node", descriptor_node_id);
+    try {
+      const auto descriptor_node_id = transaction.new_art_descriptor_node();
+      se_data->set("descriptor_node", descriptor_node_id);
+    } catch (const rust::Error &e) {
+      error_log->log(ERROR_LEVEL, "failed to allocate KirunaDB node, error: {}",
+                     e.what());
+      return HA_ERR_INTERNAL_ERROR;
+    }
     table_def->set_se_private_data(*se_data);
 
     return 0;
