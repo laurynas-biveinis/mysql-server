@@ -185,7 +185,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     auto transaction_box = kirunadb::begin_transaction(*db);
     auto &transaction = move_to_thd(thd, std::move(transaction_box));
 
-    const auto trx_id = transaction.id();
+    const auto trx_id = kirunadb::transaction_id(transaction);
     register_transaction_hton(thd, transaction_registration_scope::STATEMENT,
                               trx_id);
 
@@ -195,7 +195,8 @@ class [[nodiscard]] ha_mykiruna final : public handler {
                               trx_id);
 
     try {
-      const auto descriptor_node_id = transaction.new_art_descriptor_node();
+      const auto descriptor_node_id =
+          kirunadb::new_art_descriptor_node(transaction);
       se_data->set("descriptor_node", descriptor_node_id);
     } catch (const rust::Error &e) {
       error_log->log(ERROR_LEVEL, "failed to allocate KirunaDB node, error: {}",
@@ -312,7 +313,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   } catch (const rust::Error &e) {
     error_log->log(ERROR_LEVEL,
                    "failed to commit KirunaDB transaction ID: {}, error: {}",
-                   transaction->id(), e.what());
+                   kirunadb::transaction_id(*transaction), e.what());
     return HA_ERR_INTERNAL_ERROR;
   }
 
