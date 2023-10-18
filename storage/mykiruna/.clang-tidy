@@ -1,0 +1,5 @@
+Checks: '*,-fuchsia*,-llvmlibc*,-google-readability-braces-around-statements,-hicpp-braces-around-statements,-hicpp-named-parameter,-modernize-use-trailing-return-type,-readability-braces-around-statements,-readability-named-parameter'
+
+CheckOptions:
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: 2
