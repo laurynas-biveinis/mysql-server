@@ -26,19 +26,22 @@ namespace mykiruna {
 // major.minor where major is the higher byte and minor is the lower byte
 constexpr std::uint16_t version = 0x0001;
 
-}  // namespace mykiruna
+} // namespace mykiruna
 
 namespace {
 
 // Starts with a dot so that InnoDB skips it
+// NOLINTNEXTLINE(*-avoid-c-arrays)
 constexpr char default_datadir[] = ".kirunadb";
 
-}  // namespace
+} // namespace
 
 // Support for services for plugins
 
 // Visible symbols
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 SERVICE_TYPE(log_builtins) *log_bi = nullptr;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 
 namespace {
@@ -52,12 +55,13 @@ namespace {
 #endif
 
 class error_log_service final {
- public:
+public:
   error_log_service() {
     assert(reg_srv == nullptr);
-    if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
+    if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) {
       throw std::runtime_error(
           "Initializing logging service for plugin failed");
+    }
     inited = true;
   }
 
@@ -66,7 +70,8 @@ class error_log_service final {
 
   ~error_log_service() {
     assert(reg_srv != nullptr);
-    if (!inited) return;
+    if (!inited)
+      return;
     deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
   }
 
@@ -80,6 +85,7 @@ class error_log_service final {
                                 fmt::format_string<T...> fmt,
                                 T &&...args) DEBUG_BUILD_CONST {
     assert(inited);
+    // NOLINTNEXTLINE(*-decay,*-vararg)
     LogPluginErr(level, ER_LOG_PRINTF_MSG,
                  fmt::format(fmt, std::forward<T>(args)...).c_str());
   }
@@ -87,13 +93,16 @@ class error_log_service final {
   error_log_service(const error_log_service &) = delete;
   error_log_service &operator=(const error_log_service &) = delete;
 
- private:
+private:
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static SERVICE_TYPE(registry) * reg_srv;
   bool inited{false};
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 SERVICE_TYPE(registry) *error_log_service::reg_srv = nullptr;
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::optional<error_log_service> error_log;
 
 const auto transaction_deleter = [](kirunadb::Transaction *ptr) {
@@ -106,14 +115,15 @@ const auto db_deleter = [](kirunadb::Db *ptr) {
   kirunadb::close(std::move(boxed_ptr));
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::unique_ptr<kirunadb::Db, decltype(db_deleter)> db{nullptr, db_deleter};
 
 class [[nodiscard]] ha_mykiruna final : public handler {
- public:
+public:
   ha_mykiruna(handlerton *hton, TABLE_SHARE *table_share_arg) noexcept
       : handler{hton, table_share_arg} {}
 
- protected:
+protected:
   // Capabilities
   [[nodiscard]] Table_flags table_flags() const override {
     // TODO(laurynas): figure out HA_PARTIAL_COLUMN_READ
@@ -154,10 +164,13 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     // TODO(laurynas): add DEFAULT support, HA_SUPPORTS_DEFAULT_EXPRESSION
     // TODO(laurynas): add UPDATE support, remove HA_UPDATE_NOT_SUPPORTED
     // TODO(laurynas): add DELETE support, remove HA_DELETE_NOT_SUPPORTED
+
+    // NOLINTBEGIN(hicpp-signed-bitwise)
     return HA_TABLE_SCAN_ON_INDEX | HA_FAST_KEY_READ | HA_NO_BLOBS |
            HA_REQUIRE_PRIMARY_KEY | HA_NO_AUTO_INCREMENT | HA_NO_VARCHAR |
            HA_BINLOG_STMT_CAPABLE | HA_UPDATE_NOT_SUPPORTED |
            HA_DELETE_NOT_SUPPORTED;
+    // NOLINTEND(hicpp-signed-bitwise)
   }
 
   [[nodiscard]] ulong index_flags(uint, uint, bool) const override {
@@ -165,8 +178,11 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     // TODO(laurynas): look into HA_KEYREAD_ONLY
     // TODO(laurynas): figure out HA_KEY_SCAN_NOT_ROR
     // TODO(laurynas): implement HA_DO_INDEX_COND_PUSHDOWN
+
+    // NOLINTBEGIN(hicpp-signed-bitwise)
     return HA_READ_NEXT | HA_READ_PREV | HA_READ_ORDER | HA_READ_RANGE |
            HA_TABLE_SCAN_ON_NULL;
+    // NOLINTEND(hicpp-signed-bitwise)
   }
 
   [[nodiscard]] uint max_supported_keys() const override {
@@ -189,7 +205,9 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     register_transaction_hton(thd, transaction_registration_scope::STATEMENT,
                               trx_id);
 
+    // NOLINTNEXTLINE(hicpp-signed-bitwise)
     assert(thd_test_options(thd, OPTION_NOT_AUTOCOMMIT));
+    // NOLINTNEXTLINE(hicpp-signed-bitwise)
     assert(!thd_test_options(thd, OPTION_BEGIN));
     register_transaction_hton(thd, transaction_registration_scope::TRANSACTION,
                               trx_id);
@@ -251,7 +269,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     return HA_ERR_INTERNAL_ERROR;
   }
 
- private:
+private:
   enum class transaction_registration_scope { STATEMENT, TRANSACTION };
 
   // This is a wrapper for trans_register_ha that does two things:
@@ -264,10 +282,12 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     static_assert(sizeof(transaction_id) == sizeof(ulonglong));
     trans_register_ha(
         thd, registration_scope == transaction_registration_scope::TRANSACTION,
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         ht, reinterpret_cast<const ulonglong *>(&transaction_id));
   }
 
   [[nodiscard]] kirunadb::Transaction &move_to_thd(
+      // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
       THD *thd, rust::Box<kirunadb::Transaction> &&transaction) const noexcept {
     auto *const raw_transaction_ptr = transaction.into_raw();
     thd_set_ha_data(thd, ht, raw_transaction_ptr);
@@ -288,18 +308,19 @@ class [[nodiscard]] ha_mykiruna final : public handler {
       exchange_in_thd(thd, hton, nullptr), transaction_deleter};
 }
 
-[[nodiscard]] handler *mykiruna_create_handler(handlerton *hton,
-                                               TABLE_SHARE *table,
-                                               bool partitioned
-                                               [[maybe_unused]],
-                                               MEM_ROOT *mem_root) {
+[[nodiscard]] handler *
+mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
+                        bool partitioned [[maybe_unused]], MEM_ROOT *mem_root) {
   assert(!partitioned);
+  // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
   return new (mem_root) ha_mykiruna(hton, table);
 }
 
 [[nodiscard]] int mykiruna_commit(handlerton *hton, THD *thd, bool whole_trx) {
+  // NOLINTNEXTLINE(hicpp-signed-bitwise)
   assert(thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN));
-  if (!whole_trx) return 0;
+  if (!whole_trx)
+    return 0;
 
   auto transaction = move_from_thd(thd, hton);
   try {
@@ -314,12 +335,13 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   return 0;
 }
 
-[[nodiscard]] int mykiruna_init(void *p) {
+[[nodiscard]] int mykiruna_init(void *ptr) {
   assert(!error_log.has_value());
   assert(db == nullptr);
 
   try {
     error_log_service init_logging_service{};
+    // NOLINTNEXTLINE(*-decay)
     db.reset(kirunadb::open(default_datadir).into_raw());
     error_log = std::move(init_logging_service);
   } catch (const std::runtime_error &e) {
@@ -332,8 +354,9 @@ class [[nodiscard]] ha_mykiruna final : public handler {
     return 1;
   }
 
-  handlerton *mykiruna_hton = static_cast<handlerton *>(p);
+  auto *const mykiruna_hton = static_cast<handlerton *>(ptr);
   // Capabilities
+  // NOLINTNEXTLINE(hicpp-signed-bitwise)
   mykiruna_hton->flags = HTON_SUPPORTS_ATOMIC_DDL;
   // Transactions
   mykiruna_hton->commit = mykiruna_commit;
@@ -341,7 +364,8 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   mykiruna_hton->create = mykiruna_create_handler;
 
   error_log->log(INFORMATION_LEVEL, "version {}.{} initialized",
-                 mykiruna::version >> 8U, mykiruna::version & 0xFF);
+                 // NOLINTNEXTLINE(*-magic-numbers)
+                 mykiruna::version >> 8U, mykiruna::version & 0xFFU);
 
   return 0;
 }
@@ -358,11 +382,14 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   return 0;
 }
 
-}  // namespace
+} // namespace
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 struct st_mysql_storage_engine mykiruna_storage_engine = {
+    // NOLINTNEXTLINE(hicpp-signed-bitwise)
     MYSQL_HANDLERTON_INTERFACE_VERSION};
 
+// NOLINTNEXTLINE(*-avoid-non-const-global-variables,*-avoid-c-arrays)
 mysql_declare_plugin(my_kiruna){
     MYSQL_STORAGE_ENGINE_PLUGIN,
     &mykiruna_storage_engine,
