@@ -2,7 +2,6 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
-#include <optional>
 
 #include <fmt/core.h>
 #include <rust/cxx.h>
@@ -46,17 +45,9 @@ SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 
 namespace {
 
-#ifdef NDEBUG
-#define RELEASE_BUILD_STATIC static
-#define DEBUG_BUILD_CONST
-#else
-#define RELEASE_BUILD_STATIC
-#define DEBUG_BUILD_CONST const
-#endif
-
-class error_log_service final {
+class error_log final {
 public:
-  error_log_service() {
+  static void init() {
     assert(reg_srv == nullptr);
     if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) {
       throw std::runtime_error(
@@ -65,45 +56,40 @@ public:
     inited = true;
   }
 
-  error_log_service(error_log_service &&other) noexcept
-      : inited{std::exchange(other.inited, false)} {}
-
-  ~error_log_service() {
+  static void shutdown() {
     assert(reg_srv != nullptr);
     if (!inited)
       return;
     deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
+    inited = false;
   }
 
-  error_log_service &operator=(error_log_service &&other) noexcept {
-    inited = std::exchange(other.inited, false);
-    return *this;
+  ~error_log() {
+#ifndef NDEBUG
+    assert(!inited);
+#endif
   }
 
   template <typename... T>
-  RELEASE_BUILD_STATIC void log(enum loglevel level,
-                                fmt::format_string<T...> fmt,
-                                T &&...args) DEBUG_BUILD_CONST {
+  static void log(enum loglevel level, fmt::format_string<T...> fmt,
+                  T &&...args) {
     assert(inited);
     // NOLINTNEXTLINE(*-decay,*-vararg)
     LogPluginErr(level, ER_LOG_PRINTF_MSG,
                  fmt::format(fmt, std::forward<T>(args)...).c_str());
   }
 
-  error_log_service(const error_log_service &) = delete;
-  error_log_service &operator=(const error_log_service &) = delete;
+  error_log(const error_log &) = delete;
+  error_log(error_log &&) = delete;
+  error_log &operator=(const error_log &) = delete;
+  error_log &operator=(error_log &&) = delete;
 
 private:
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-  static SERVICE_TYPE(registry) * reg_srv;
-  bool inited{false};
+  static inline SERVICE_TYPE(registry) * reg_srv{nullptr};
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+  static inline bool inited{false};
 };
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-SERVICE_TYPE(registry) *error_log_service::reg_srv = nullptr;
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::optional<error_log_service> error_log;
 
 const auto transaction_deleter = [](kirunadb::Transaction *ptr) {
   auto boxed_ptr = rust::Box<kirunadb::Transaction>::from_raw(ptr);
@@ -326,7 +312,7 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
   try {
     transaction->commit();
   } catch (const rust::Error &e) {
-    error_log->log(ERROR_LEVEL,
+    error_log::log(ERROR_LEVEL,
                    "failed to commit KirunaDB transaction ID: {}, error: {}",
                    kirunadb::transaction_id(*transaction), e.what());
     return HA_ERR_INTERNAL_ERROR;
@@ -336,20 +322,21 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
 }
 
 [[nodiscard]] int mykiruna_init(void *ptr) {
-  assert(!error_log.has_value());
   assert(db == nullptr);
 
   try {
-    error_log_service init_logging_service{};
-    // NOLINTNEXTLINE(*-decay)
-    db.reset(kirunadb::open(default_datadir).into_raw());
-    error_log = std::move(init_logging_service);
+    error_log::init();
   } catch (const std::runtime_error &e) {
     fmt::print(stderr,
                "Failed to initialize logging service for MyKiruna plugin\n");
     return 1;
+  }
+
+  try {
+    // NOLINTNEXTLINE(*-decay)
+    db.reset(kirunadb::open(default_datadir).into_raw());
   } catch (const rust::Error &e) {
-    error_log->log(ERROR_LEVEL, "failed to initialize KirunaDB in {}: {}",
+    error_log::log(ERROR_LEVEL, "failed to initialize KirunaDB in {}: {}",
                    default_datadir, e.what());
     return 1;
   }
@@ -363,7 +350,7 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
   // DDL
   mykiruna_hton->create = mykiruna_create_handler;
 
-  error_log->log(INFORMATION_LEVEL, "version {}.{} initialized",
+  error_log::log(INFORMATION_LEVEL, "version {}.{} initialized",
                  // NOLINTNEXTLINE(*-magic-numbers)
                  mykiruna::version >> 8U, mykiruna::version & 0xFFU);
 
@@ -372,13 +359,12 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
 
 [[nodiscard]] int mykiruna_deinit(void *) {
   assert(db != nullptr);
-  assert(error_log.has_value());
 
   db.reset();
 
-  error_log->log(INFORMATION_LEVEL, "uninitialized");
+  error_log::log(INFORMATION_LEVEL, "uninitialized");
 
-  error_log.reset();
+  error_log::shutdown();
   return 0;
 }
 
