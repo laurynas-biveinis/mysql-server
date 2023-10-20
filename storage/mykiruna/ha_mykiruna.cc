@@ -37,7 +37,8 @@ constexpr char default_datadir[] = ".kirunadb";
 
 // Support for services for plugins
 
-// Visible symbols
+// Visible symbols. Even though they are only used in class error_log, moving
+// them there results in linker errors.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 SERVICE_TYPE(log_builtins) *log_bi = nullptr;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
