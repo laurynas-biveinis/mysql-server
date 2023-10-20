@@ -92,18 +92,38 @@ private:
   static inline bool inited{false};
 };
 
+class db final {
+public:
+  static void init(const std::string &path) {
+    assert(instance == nullptr);
+    instance.reset(kirunadb::open(path).into_raw());
+  }
+
+  static void shutdown() noexcept {
+    assert(instance != nullptr);
+    instance.reset();
+  }
+
+  static kirunadb::Db& get() noexcept {
+    assert(instance != nullptr);
+    return *instance;
+  }
+
+private:
+  static inline const auto db_deleter{[](kirunadb::Db *ptr) {
+    auto boxed_ptr = rust::Box<kirunadb::Db>::from_raw(ptr);
+    kirunadb::close(std::move(boxed_ptr));
+  }};
+
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+  static inline std::unique_ptr<kirunadb::Db, decltype(db_deleter)> instance{
+      nullptr, db_deleter};
+};
+
 const auto transaction_deleter = [](kirunadb::Transaction *ptr) {
   auto boxed_ptr = rust::Box<kirunadb::Transaction>::from_raw(ptr);
   kirunadb::drop_transaction(std::move(boxed_ptr));
 };
-
-const auto db_deleter = [](kirunadb::Db *ptr) {
-  auto boxed_ptr = rust::Box<kirunadb::Db>::from_raw(ptr);
-  kirunadb::close(std::move(boxed_ptr));
-};
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::unique_ptr<kirunadb::Db, decltype(db_deleter)> db{nullptr, db_deleter};
 
 class [[nodiscard]] ha_mykiruna final : public handler {
 public:
@@ -185,7 +205,7 @@ protected:
     std::unique_ptr<dd::Properties> se_data{
         dd::Properties::parse_properties("")};
 
-    auto transaction_box = kirunadb::begin_transaction(*db);
+    auto transaction_box = kirunadb::begin_transaction(db::get());
     auto &transaction = move_to_thd(thd, std::move(transaction_box));
 
     const auto trx_id = kirunadb::transaction_id(transaction);
@@ -323,8 +343,6 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
 }
 
 [[nodiscard]] int mykiruna_init(void *ptr) {
-  assert(db == nullptr);
-
   try {
     error_log::init();
   } catch (const std::runtime_error &e) {
@@ -335,7 +353,7 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
 
   try {
     // NOLINTNEXTLINE(*-decay)
-    db.reset(kirunadb::open(default_datadir).into_raw());
+    db::init(default_datadir);
   } catch (const rust::Error &e) {
     error_log::log(ERROR_LEVEL, "failed to initialize KirunaDB in {}: {}",
                    default_datadir, e.what());
@@ -359,9 +377,7 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
 }
 
 [[nodiscard]] int mykiruna_deinit(void *) {
-  assert(db != nullptr);
-
-  db.reset();
+  db::shutdown();
 
   error_log::log(INFORMATION_LEVEL, "uninitialized");
 
