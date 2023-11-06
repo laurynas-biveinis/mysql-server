@@ -1,0 +1,21 @@
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+
+--echo # The simplest case
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=MyKiruna;
+DROP TABLE t1;
+
+# --echo # A second table after the first one was dropped
+# CREATE TABLE t2 (a INT PRIMARY KEY) ENGINE=MyKiruna;
+# DROP TABLE t2;
+#
+# -- echo # Reuse the name
+# CREATE TABLE t2 (a INT PRIMARY KEY) ENGINE=MyKiruna;
+# DROP TABLE t2;
+#
+# -- echo # Two tables at the same time
+# CREATE TABLE t3 (a INT PRIMARY KEY) ENGINE=MyKiruna;
+# CREATE TABLE t4 (a INT PRIMARY KEY) ENGINE=MyKiruna;
+# DROP TABLE t3;
+# DROP TABLE t4;
+#
+UNINSTALL PLUGIN mykiruna;

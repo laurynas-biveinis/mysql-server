@@ -1,0 +1,6 @@
+[submodule "storage/mykiruna/kirunadb"]
+	path = storage/mykiruna/kirunadb
+	url = git@github.com:laurynas-biveinis/kirunadb.git
+[submodule "storage/mykiruna/fmt"]
+	path = storage/mykiruna/fmt
+	url = https://github.com/fmtlib/fmt.git
