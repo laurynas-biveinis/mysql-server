@@ -1,0 +1,4 @@
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+UNINSTALL PLUGIN mykiruna;
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+UNINSTALL PLUGIN mykiruna;

@@ -1,0 +1,14 @@
+--source include/have_debug.inc
+
+INSTALL PLUGIN mykiruna SONAME 'ha_mykiruna.so';
+
+CREATE TABLE t_a (a INT PRIMARY KEY) ENGINE=MyKiruna;
+
+SET SESSION debug='+d,skip_dd_table_access_check';
+
+--replace_regex /[0-9]+/NODE_ID/
+SELECT se_private_data FROM mysql.tables WHERE name = 't_a';
+
+DROP TABLE t_a;
+
+UNINSTALL PLUGIN mykiruna;
