@@ -1,7 +1,9 @@
-// Copyright 2022-2023 Laurynas Biveinis
+// Copyright 2022-2024 Laurynas Biveinis
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <string_view>
 
 #include <fmt/core.h>
 #include <rust/cxx.h>
@@ -20,20 +22,21 @@
 
 #include "kirunadb_cxx/ffi_cxx.h"
 
+using namespace std::string_view_literals;
+
 namespace mykiruna {
 
 // major.minor where major is the higher byte and minor is the lower byte
 constexpr std::uint16_t version = 0x0001;
 
-} // namespace mykiruna
+}  // namespace mykiruna
 
 namespace {
 
 // Starts with a dot so that InnoDB skips it
-// NOLINTNEXTLINE(*-avoid-c-arrays)
-constexpr char default_datadir[] = ".kirunadb";
+constexpr std::string_view default_datadir = ".kirunadb"sv;
 
-} // namespace
+}  // namespace
 
 // Support for services for plugins
 
@@ -47,7 +50,7 @@ SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 namespace {
 
 class error_log final {
-public:
+ public:
   static void init() {
     assert(reg_srv == nullptr);
     if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) {
@@ -59,8 +62,7 @@ public:
 
   static void shutdown() {
     assert(reg_srv != nullptr);
-    if (!inited)
-      return;
+    if (!inited) return;
     deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
     inited = false;
   }
@@ -85,7 +87,7 @@ public:
   error_log &operator=(const error_log &) = delete;
   error_log &operator=(error_log &&) = delete;
 
-private:
+ private:
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static inline SERVICE_TYPE(registry) * reg_srv{nullptr};
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -93,10 +95,10 @@ private:
 };
 
 class db final {
-public:
-  static void init(const std::string &path) {
+ public:
+  static void init(std::string_view path) {
     assert(instance == nullptr);
-    instance.reset(kirunadb::open(path).into_raw());
+    instance.reset(kirunadb::open(std::string{path}).into_raw());
   }
 
   static void shutdown() noexcept {
@@ -104,12 +106,12 @@ public:
     instance.reset();
   }
 
-  static kirunadb::Db& get() noexcept {
+  static kirunadb::Db &get() noexcept {
     assert(instance != nullptr);
     return *instance;
   }
 
-private:
+ private:
   static inline const auto db_deleter{[](kirunadb::Db *ptr) {
     auto boxed_ptr = rust::Box<kirunadb::Db>::from_raw(ptr);
     kirunadb::close(std::move(boxed_ptr));
@@ -126,11 +128,11 @@ const auto transaction_deleter = [](kirunadb::Transaction *ptr) {
 };
 
 class [[nodiscard]] ha_mykiruna final : public handler {
-public:
+ public:
   ha_mykiruna(handlerton *hton, TABLE_SHARE *table_share_arg) noexcept
       : handler{hton, table_share_arg} {}
 
-protected:
+ protected:
   // Capabilities
   [[nodiscard]] Table_flags table_flags() const override {
     // TODO(laurynas): figure out HA_PARTIAL_COLUMN_READ
@@ -276,7 +278,7 @@ protected:
     return HA_ERR_INTERNAL_ERROR;
   }
 
-private:
+ private:
   enum class transaction_registration_scope { STATEMENT, TRANSACTION };
 
   // This is a wrapper for trans_register_ha that does two things:
@@ -315,9 +317,11 @@ private:
       exchange_in_thd(thd, hton, nullptr), transaction_deleter};
 }
 
-[[nodiscard]] handler *
-mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
-                        bool partitioned [[maybe_unused]], MEM_ROOT *mem_root) {
+[[nodiscard]] handler *mykiruna_create_handler(handlerton *hton,
+                                               TABLE_SHARE *table,
+                                               bool partitioned
+                                               [[maybe_unused]],
+                                               MEM_ROOT *mem_root) {
   assert(!partitioned);
   // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
   return new (mem_root) ha_mykiruna(hton, table);
@@ -326,8 +330,7 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
 [[nodiscard]] int mykiruna_commit(handlerton *hton, THD *thd, bool whole_trx) {
   // NOLINTNEXTLINE(hicpp-signed-bitwise)
   assert(thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN));
-  if (!whole_trx)
-    return 0;
+  if (!whole_trx) return 0;
 
   auto transaction = move_from_thd(thd, hton);
   try {
@@ -352,7 +355,6 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
   }
 
   try {
-    // NOLINTNEXTLINE(*-decay)
     db::init(default_datadir);
   } catch (const rust::Error &e) {
     error_log::log(ERROR_LEVEL, "failed to initialize KirunaDB in {}: {}",
@@ -385,7 +387,7 @@ mykiruna_create_handler(handlerton *hton, TABLE_SHARE *table,
   return 0;
 }
 
-} // namespace
+}  // namespace
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 struct st_mysql_storage_engine mykiruna_storage_engine = {
