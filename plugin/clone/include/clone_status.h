@@ -420,6 +420,13 @@ class Progress_pfs : public Table_pfs {
       write(data_dir);
     }
 
+    /** Add to the data size estimate.
+    @param[in]  estimate_delta  how many bytes to add to the estimate */
+    void add_to_data_size_estimate(uint64_t estimate_delta) {
+      assert(m_current_stage != STAGE_NONE);
+      m_estimate[m_current_stage] += estimate_delta;
+    }
+
     /** Set PFS table data while ending a Clone stage.
     @@param[in]	data_dir	data directory for write. */
     void end_stage(bool failed, const char *data_dir) {

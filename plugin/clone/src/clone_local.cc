@@ -253,6 +253,11 @@ int Local_Callback::apply_ack() {
   return (error);
 }
 
+void Local_Callback::add_to_data_size_estimate(std::uint64_t estimate_delta) {
+  auto *const client = get_clone_client();
+  client->add_to_data_size_estimate(estimate_delta);
+}
+
 int Local_Callback::apply_data() {
   uint loc_len = 0;
 
