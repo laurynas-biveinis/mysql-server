@@ -31,7 +31,9 @@
   such as Valgrind.
 */
 
+#if !defined(NDEBUG) || defined(HAVE_VALGRIND)
 #include <string.h>
+#endif
 
 #ifdef HAVE_VALGRIND
 #include <valgrind/valgrind.h>
@@ -42,10 +44,24 @@
 #include <valgrind/memcheck.h>
 
 #define MEM_UNDEFINED(a, len) VALGRIND_MAKE_MEM_UNDEFINED(a, len)
-#define MEM_DEFINED_IF_ADDRESSABLE(a, len) \
-  VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(a, len)
 #define MEM_NOACCESS(a, len) VALGRIND_MAKE_MEM_NOACCESS(a, len)
 #define MEM_CHECK_ADDRESSABLE(a, len) VALGRIND_CHECK_MEM_IS_ADDRESSABLE(a, len)
+
+#elif defined(HAVE_ASAN)
+
+#include <assert.h>
+#include <sanitizer/asan_interface.h>
+
+#define MEM_MALLOCLIKE_BLOCK(p1, p2, p3, p4) ASAN_UNPOISON_MEMORY_REGION(p1, p2)
+#define MEM_FREELIKE_BLOCK(p1, p2) ASAN_POISON_MEMORY_REGION(p1, p2)
+
+#define MEM_UNDEFINED(a, len) ASAN_UNPOISON_MEMORY_REGION(a, len)
+#define MEM_NOACCESS(a, len) ASAN_POISON_MEMORY_REGION(a, len)
+
+// In the case of error, this will immediatelly terminate the process instead of
+// printing an error and continuing, which is more common for ASan errors.
+// Change it to log and continue if that becomes an issue.
+#define MEM_CHECK_ADDRESSABLE(a, len) assert(!__asan_region_is_poisoned(a, len))
 
 #else /* HAVE_VALGRIND */
 
@@ -56,17 +72,17 @@
   do {                             \
   } while (0)
 #define MEM_UNDEFINED(a, len) ((void)0)
-#define MEM_DEFINED_IF_ADDRESSABLE(a, len) ((void)0)
 #define MEM_NOACCESS(a, len) ((void)0)
 #define MEM_CHECK_ADDRESSABLE(a, len) ((void)0)
 
 #endif
 
-#if !defined(NDEBUG) || defined(HAVE_VALGRIND)
+#if !defined(NDEBUG) || defined(HAVE_VALGRIND) || defined(HAVE_ASAN)
 
 /**
   Put bad content in memory to be sure it will segfault if dereferenced.
-  With Valgrind, verify that memory is addressable, and mark it undefined.
+  With Valgrind and AddressSanitizer, verify that memory is addressable, and
+  mark it undefined.
 */
 inline void TRASH(void *ptr, size_t length) {
   MEM_CHECK_ADDRESSABLE(ptr, length);
