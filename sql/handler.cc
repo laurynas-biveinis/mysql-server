@@ -54,7 +54,7 @@
 #include "my_pointer_arithmetic.h"
 #include "my_psi_config.h"
 #include "my_sqlcommand.h"
-#include "my_sys.h"  // MEM_DEFINED_IF_ADDRESSABLE()
+#include "my_sys.h"
 #include "myisam.h"  // TT_FOR_UPGRADE
 #include "mysql/binlog/event/binlog_event.h"
 #include "mysql/components/services/bits/psi_bits.h"
