@@ -200,7 +200,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   // CREATE TABLE
   [[nodiscard]] int create(const char *, TABLE *, HA_CREATE_INFO *,
                            dd::Table *table_def) override {
-    auto *const thd = ha_thd();
+    auto &thd = *ha_thd();
 
     std::unique_ptr<dd::Properties> se_data{
         dd::Properties::parse_properties("")};
@@ -213,9 +213,9 @@ class [[nodiscard]] ha_mykiruna final : public handler {
                               trx_id);
 
     // NOLINTNEXTLINE(hicpp-signed-bitwise)
-    assert(thd_test_options(thd, OPTION_NOT_AUTOCOMMIT));
+    assert(thd_test_options(&thd, OPTION_NOT_AUTOCOMMIT));
     // NOLINTNEXTLINE(hicpp-signed-bitwise)
-    assert(!thd_test_options(thd, OPTION_BEGIN));
+    assert(!thd_test_options(&thd, OPTION_BEGIN));
     register_transaction_hton(thd, transaction_registration_scope::TRANSACTION,
                               trx_id);
 
@@ -284,33 +284,33 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   //   KirunaDB and ulonglong in MySQL transaction IDs.
   // - Replaces the 'bool arg' argument with a more expressive enum.
   void register_transaction_hton(
-      THD *thd, enum transaction_registration_scope registration_scope,
+      THD &thd, enum transaction_registration_scope registration_scope,
       std::uint64_t transaction_id) const {
     static_assert(sizeof(transaction_id) == sizeof(ulonglong));
     trans_register_ha(
-        thd, registration_scope == transaction_registration_scope::TRANSACTION,
+        &thd, registration_scope == transaction_registration_scope::TRANSACTION,
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         ht, reinterpret_cast<const ulonglong *>(&transaction_id));
   }
 
   [[nodiscard]] kirunadb::Transaction &move_to_thd(
       // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
-      THD *thd, rust::Box<kirunadb::Transaction> &&transaction) const noexcept {
+      THD &thd, rust::Box<kirunadb::Transaction> &&transaction) const noexcept {
     auto *const raw_transaction_ptr = transaction.into_raw();
-    thd_set_ha_data(thd, ht, raw_transaction_ptr);
+    thd_set_ha_data(&thd, ht, raw_transaction_ptr);
     return *raw_transaction_ptr;
   }
 };
 
-[[nodiscard]] auto *exchange_in_thd(THD *thd, const handlerton *hton,
+[[nodiscard]] auto *exchange_in_thd(THD &thd, const handlerton *hton,
                                     kirunadb::Transaction *new_val) {
   auto *const result =
-      static_cast<kirunadb::Transaction *>(thd_get_ha_data(thd, hton));
-  thd_set_ha_data(thd, hton, new_val);
+      static_cast<kirunadb::Transaction *>(thd_get_ha_data(&thd, hton));
+  thd_set_ha_data(&thd, hton, new_val);
   return result;
 }
 
-[[nodiscard]] auto move_from_thd(THD *thd, const handlerton *hton) {
+[[nodiscard]] auto move_from_thd(THD &thd, const handlerton *hton) {
   return std::unique_ptr<kirunadb::Transaction, decltype(transaction_deleter)>{
       exchange_in_thd(thd, hton, nullptr), transaction_deleter};
 }
@@ -330,7 +330,7 @@ class [[nodiscard]] ha_mykiruna final : public handler {
   assert(thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN));
   if (!whole_trx) return 0;
 
-  auto transaction = move_from_thd(thd, hton);
+  auto transaction = move_from_thd(*thd, hton);
   try {
     transaction->commit();
   } catch (const rust::Error &e) {
