@@ -68,9 +68,7 @@ class error_log final {
   }
 
   ~error_log() {
-#ifndef NDEBUG
     assert(!inited);
-#endif
   }
 
   template <typename... T>
